@@ -1,41 +1,31 @@
-# CI Test Repo — for the AI Diagnoser
+# Lint/Format Failure Test
 
-This is a minimal repo whose only job is to give your AI CI/CD Diagnoser
-something real to diagnose.
+This adds a `black --check .` step to your CI workflow, plus a deliberately
+badly-formatted file (`badly_formatted.py`) that will fail it.
 
-## First push (should PASS)
-Push this exactly as-is. The `CI` workflow will run and pass — this
-confirms your GitHub Actions setup and webhook registration are wired up
-correctly before you break anything on purpose.
+## Why this test matters
+Unlike the "nonexistent package" failure (which needs human judgment to fix),
+a `black` formatting failure has exactly one correct, unambiguous fix:
+run `black` on the file. This is the category of failure your AI Diagnoser
+should mark as `safe_to_auto_fix=True`, since there's no ambiguity in what
+the "fix" should look like.
 
-## Second push (trigger a real failure)
-Edit `requirements.txt` and change:
+## How to use
+1. Copy `.github/workflows/ci.yml`, `requirements.txt`, and
+   `badly_formatted.py` into your existing `ci-test-repo` (overwriting the
+   first two, adding the third).
+2. Commit and push.
+3. The `pytest` step will pass, but the new `black --check .` step will
+   fail — this triggers your AI Diagnoser.
+4. Check the AI comment on the commit — you should now see
+   `fix_category: lint_format` and (if your diagnosis prompt/logic is
+   tuned correctly) `safe_to_auto_fix: True`.
+
+## To fix it manually and get back to green
 ```
-pytest==8.3.3
-requests==2.32.3
+pip install black
+black .
+git add .
+git commit -m "fix: apply black formatting"
+git push
 ```
-to:
-```
-pytest==8.3.3
-requests==2.32.3
-nonexistentpackage123==1.0.0
-```
-
-Commit and push. This workflow run will **fail** at the "Install
-dependencies" step, since that package doesn't exist on PyPI — exactly
-the kind of failure your AI Diagnoser is built to catch and explain.
-
-## Other failure types to try later
-- **Flaky/logic failure**: change `assert 1 + 1 == 2` to `assert 1 + 1 == 3`
-  in `test_sample.py` — this tests how the AI handles an actual test
-  failure vs. a dependency failure.
-- **Lint/format failure**: add a `flake8` or `black --check` step to the
-  workflow and commit badly-formatted code, to test the `lint_format`
-  fix category.
-
-## Webhook setup reminder
-Settings → Webhooks → Add webhook:
-- Payload URL: `https://<your-deployed-backend>/webhook`
-- Content type: `application/json`
-- Secret: same value as `GITHUB_WEBHOOK_SECRET` in your backend
-- Events: select **only** "Workflow runs"
